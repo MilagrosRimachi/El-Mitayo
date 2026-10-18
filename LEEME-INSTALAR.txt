@@ -1,0 +1,110 @@
+=====================================================================
+  MULTISERVICIOS "EL MITAYO" — CÓMO INSTALAR LA PLATAFORMA
+=====================================================================
+
+Esta es una plataforma NUEVA y SEPARADA de la botica.
+No toques el proyecto de Botica Quistococha: todo va en proyectos nuevos.
+
+---------------------------------------------------------------------
+PASO 1. Base de datos nueva en Supabase
+---------------------------------------------------------------------
+1. Entra a supabase.com → "New project".
+   Nombre: el-mitayo · Región: la misma de la botica (o "South America").
+   Guarda la contraseña de la base de datos en un lugar seguro.
+2. Cuando termine de crearse: SQL Editor → New query.
+3. Abre el archivo  supabase/01_mitayo.sql , copia TODO, pégalo y dale RUN.
+   Debe decir "Success".
+4. New query otra vez → pega TODO  supabase/02_productos.sql  → RUN.
+   Esto carga los 2 640 productos de tu Excel.
+4b. New query → pega TODO  supabase/03_anular_comprobantes.sql  → RUN.
+   Esto permite anular comprobantes (nota de crédito automática).
+5. Crea tu usuario (solo habrá uno):
+   Authentication → Users → "Add user" → "Create new user"
+   Pon tu correo y una contraseña, y marca "Auto Confirm User".
+6. Copia las claves (Project Settings → API Keys):
+   - Project URL                    → NEXT_PUBLIC_SUPABASE_URL
+   - Publishable key                → NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+   - Secret key (service_role)      → SUPABASE_SERVICE_ROLE_KEY
+
+---------------------------------------------------------------------
+PASO 2. La carpeta en tu computadora
+---------------------------------------------------------------------
+1. Descomprime el zip en una carpeta NUEVA, por ejemplo:
+      C:\Users\MILAGROS\el-mitayo
+   (NO dentro de quistococha-salud)
+2. Copia el archivo  .env.example  y renómbralo  .env.local
+   Llénalo con las claves del paso 1.6, tu token de Decolecta
+   (puede ser el mismo de la botica) y una SUNAT_LLAVE nueva.
+   Para generar la SUNAT_LLAVE, en la terminal de VS Code escribe:
+      node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+   y copia lo que salga.
+3. En la terminal de VS Code, dentro de la carpeta el-mitayo:
+      npm install
+      npm run build
+      npm run start
+   Abre http://localhost:3000 y entra con tu correo y contraseña.
+
+---------------------------------------------------------------------
+PASO 3. Subirla a internet (GitHub + Netlify)
+---------------------------------------------------------------------
+1. En github.com crea un repositorio NUEVO: el-mitayo (privado).
+2. En la terminal:
+      git init
+      git add .
+      git commit -m "Plataforma El Mitayo"
+      git branch -M main
+      git remote add origin https://github.com/TU-USUARIO/el-mitayo.git
+      git push -u origin main
+   (El archivo .env.local NO se sube: así debe ser.)
+3. En netlify.com → "Add new site" → "Import an existing project"
+   → GitHub → el-mitayo.
+4. Antes de publicar, en "Environment variables" agrega las 5 claves
+   de tu .env.local (mismos nombres, mismos valores):
+      NEXT_PUBLIC_SUPABASE_URL
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+      SUPABASE_SERVICE_ROLE_KEY
+      DECOLECTA_TOKEN
+      SUNAT_LLAVE
+5. Deploy. En Site configuration → "Change site name" ponle: el-mitayo
+   Quedará en  https://el-mitayo.netlify.app  (gratis).
+
+---------------------------------------------------------------------
+PASO 4. En el celular
+---------------------------------------------------------------------
+1. Abre https://el-mitayo.netlify.app en Chrome y entra.
+2. Menú ⋮ → "Instalar aplicación" (o "Agregar a pantalla principal").
+   Queda como una app con el logo del pescador.
+3. No se necesita ticketera: cada boleta o factura se envía en PDF
+   por WhatsApp. (Si algún día compras una, se activa en
+   Ajustes → Ticketera.)
+4. Abre una vez Vender y Ventas con internet: así quedan guardadas
+   para funcionar SIN internet.
+
+---------------------------------------------------------------------
+PASO 5. Ajustes para SUNAT (en la pantalla Ajustes)
+---------------------------------------------------------------------
+1. Datos del negocio: RUC, razón social, dirección, ubigeo, series
+   (B001 y F001 si es la primera vez), WhatsApp de la contadora.
+2. Certificado digital: sube el .pfx y su contraseña.
+3. Usuario secundario SOL: créalo en SUNAT Operaciones en Línea
+   con el RUC de El Mitayo, con permiso de emisión electrónica
+   (igual que hiciste en la botica). Pon usuario y clave.
+4. Haz 2 o 3 ventas de prueba (modo PRUEBAS). Si salen bien:
+   "Pasar a REAL". Desde ahí cada boleta y factura vale ante SUNAT.
+
+---------------------------------------------------------------------
+CÓMO SE USA
+---------------------------------------------------------------------
+VENDER    Busca el producto (nombre o código), tócalo, ajusta cantidad
+          o precio, elige Boleta/Factura y pago → "Cobrar".
+          Toca "Enviar por WhatsApp": se abre WhatsApp con la boleta en
+          PDF, eliges al cliente y envías. Funciona sin internet: la venta
+          se guarda en el celular y se sube sola cuando vuelve la señal.
+VENTAS    Las ventas del día; el botón verde reenvía el PDF por
+          WhatsApp; ver si SUNAT ya aceptó.
+PRODUCTOS Agregar producto nuevo, cambiar precio o nombre, quitar de
+          la venta, subir un Excel (mismo formato del reporte de items)
+          o descargar todos en Excel.
+REPORTE   Elige el mes → "Enviar PDF por WhatsApp" → elige a tu
+          contadora → enviar. También descarga PDF o Excel.
+AJUSTES   Datos del negocio y SUNAT (ticketera opcional).

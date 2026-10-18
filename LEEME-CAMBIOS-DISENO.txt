@@ -1,0 +1,76 @@
+=====================================================================
+  EL MITAYO — CAMBIO: NUEVO DISEÑO, COMPROBANTES Y ANULAR
+=====================================================================
+
+QUÉ CAMBIA
+- Colores rosado bebé con líneas frambuesa y el logo nuevo.
+- Menú a la izquierda (en la computadora): Vender, Venta del día,
+  Comprobantes, Productos, Reporte del mes, Ajustes.
+  En el celular el menú va abajo y Ajustes arriba a la derecha.
+- VENDER: a la izquierda buscas el producto; a la derecha se van
+  sumando en un cuadro: Cantidad | Producto | Precio | Total.
+  · Por kilo, metro o litro: escribe la cantidad con decimales
+    (ej. 0.25 kg). Al elegir un producto por kilo, el cursor salta
+    solo a la cantidad.
+  · Teclado: escribe, flechas ↑ ↓ para elegir, Enter para agregar.
+  · "+ Producto nuevo": lo agregas a la venta y queda guardado en
+    la lista de productos.
+  · Botón "Pagar": en la computadora imprime el ticket de 80 mm
+    al instante. Luego envías el comprobante EN PDF por WhatsApp:
+      Celular: "Enviar PDF por WhatsApp" → se abre WhatsApp con el
+      PDF ya adjunto → eliges al cliente → enviar.
+      Computadora: escribes el celular del cliente → "Enviar PDF" →
+      se descarga el PDF y se abre su chat → arrastras el PDF al
+      chat (o clip 📎) → enviar.
+- VENTA DEL DÍA: total, por medio de pago, boletas y facturas, y la
+  lista de comprobantes del día.
+- COMPROBANTES: busca por fechas (desde/hasta), por nombre, DNI o RUC
+  del cliente, boleta/factura y vigentes/anulados. En cada uno:
+  imprimir 🖨, WhatsApp y Anular.
+- ANULAR: SUNAT no deja borrar comprobantes. Al anular se emite sola
+  una NOTA DE CRÉDITO (serie BC01 para boletas, FC01 para facturas)
+  y se envía a SUNAT. La venta deja de sumar en el día y en el mes.
+- Por WhatsApp siempre va el archivo PDF (nunca un enlace).
+
+CÓMO INSTALAR (ya tienes la plataforma funcionando)
+1. Supabase de EL MITAYO → SQL Editor → New query →
+   pega TODO  supabase/03_anular_comprobantes.sql  → RUN.
+   Debe decir: "Listo: ya se pueden anular comprobantes…"
+2. Descomprime el zip DENTRO de  C:\Users\MILAGROS\el-mitayo\el-mitayo
+   (la carpeta donde están app, lib, package.json…) y elige
+   "Reemplazar los archivos". Tu .env.local NO se toca.
+3. En la terminal de VS Code (dentro de esa carpeta):
+      npm run build
+      npm run start
+4. Abre http://localhost:3000 . Si ves los colores viejos, presiona
+   Ctrl + Shift + R para recargar.
+
+IMPRESIÓN DIRECTA EN LA COMPUTADORA
+Igual que en la botica: un acceso directo del navegador con
+--kiosk-printing hace que el ticket salga sin la ventana de imprimir.
+Si usas Chrome para El Mitayo, crea ese acceso directo para Chrome:
+clic derecho en el acceso directo de Chrome → Propiedades → en
+"Destino", al final, deja un espacio y agrega:
+   --kiosk-printing https://el-mitayo.netlify.app
+(mientras pruebas en tu PC: --kiosk-printing http://localhost:3000)
+Elige como impresora predeterminada de Windows la ticketera de 80 mm.
+
+---------------------------------------------------------------------
+ENVÍO A LA CONTADORA (Reporte del mes)
+---------------------------------------------------------------------
+- Botón verde "Enviar ventas a contadora": abajo del menú en la
+  computadora, y "Contadora" en el menú de abajo del celular.
+- AVISO DE FIN DE MES: el último día del mes (30 o 31, o 28/29 en
+  febrero) desde las 5 pm aparece arriba un aviso verde
+  "¡Fin de mes! Envía las ventas…". Si no se envió, sigue saliendo
+  del 1 al 5 del mes siguiente. Desaparece al enviarlo o al tocar
+  "Ya lo envié".
+- El PDF ahora es un REGISTRO DE VENTAS completo: fecha, tipo,
+  serie-número, DNI/RUC, cliente, pago, exonerado, IGV, total y
+  observación. Incluye las anuladas y sus notas de crédito (que
+  restan), y marca las rechazadas por SUNAT (no suman).
+  Resumen: boletas, facturas, notas de crédito y TOTAL NETO.
+- Un solo toque en "Enviar ventas a contadora" manda el PDF y el
+  EXCEL juntos por WhatsApp. (Si el celular no deja compartir .xlsx,
+  el Excel va como .csv, que también se abre con Excel.)
+- "Descargar PDF" y "Descargar Excel" siguen disponibles.
