@@ -11,6 +11,7 @@ import { enviarSunat } from "@/app/protected/acciones";
 import {
   guardar,
   leer,
+  productosGuardados,
   quitarVentaLocal,
   reemplazarProductos,
   subirContador,
@@ -86,6 +87,33 @@ export async function bajarContexto(): Promise<Contexto | null> {
   await subirContador(ctx.series["01"], ctx.ambiente, ctx.ultimos["01"]);
 
   return ctx;
+}
+
+/* Huella del catálogo: cuántos productos hay y cuándo cambió el último.
+   Si es la misma de la última vez, no se vuelve a bajar todo. */
+async function huellaCatalogo(): Promise<string | null> {
+  const sb = createClient();
+  const [cuenta, ultimo] = await Promise.all([
+    sb.from("productos").select("id", { count: "exact", head: true }).abortSignal(limite(8000)),
+    sb.from("productos").select("actualizado_en").order("actualizado_en", { ascending: false }).limit(1).abortSignal(limite(8000)),
+  ]);
+  if (cuenta.error || ultimo.error) return null;
+  const fecha = ((ultimo.data ?? []) as Array<{ actualizado_en: string }>)[0]?.actualizado_en ?? "";
+  return `${cuenta.count ?? 0}|${fecha}`;
+}
+
+/* Baja el catálogo solo si cambió (o si se pide forzar). Devuelve true si lo renovó. */
+export async function actualizarCatalogo(forzar = false): Promise<boolean> {
+  const huella = await huellaCatalogo().catch(() => null);
+  const anterior = await leer<string>("catalogo_huella").catch(() => null);
+  const guardados = await productosGuardados().catch(() => []);
+  if (!forzar && huella && huella === anterior && guardados.length > 0) {
+    await guardar("catalogo_en", new Date().toISOString());
+    return false;
+  }
+  const lista = await bajarCatalogo();
+  if (lista && huella) await guardar("catalogo_huella", huella);
+  return !!lista;
 }
 
 export async function bajarCatalogo(): Promise<Producto[] | null> {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { bajarCatalogo, bajarContexto, enviarPendientesSunat, haySinConexion, subirPendientes } from "@/lib/sincronizar";
+import { actualizarCatalogo, bajarContexto, enviarPendientesSunat, haySinConexion, subirPendientes } from "@/lib/sincronizar";
 import { leer } from "@/lib/local";
 
 const CADA_MS = 3 * 60 * 1000;
@@ -37,11 +37,11 @@ export default function Sincronizador() {
 
       await subirPendientes().catch(() => []);
 
-      // El catálogo se renueva al abrir y luego cada 30 minutos
+      // El catálogo se revisa al abrir y cada 10 minutos; solo se baja si cambió
       const ultimo = await leer<string>("catalogo_en").catch(() => null);
-      if (completa || !ultimo || Date.now() - new Date(ultimo).getTime() > 30 * 60 * 1000) {
-        await bajarCatalogo().catch(() => null);
-        window.dispatchEvent(new Event("mitayo:catalogo"));
+      if (completa || !ultimo || Date.now() - new Date(ultimo).getTime() > 10 * 60 * 1000) {
+        const cambio = await actualizarCatalogo().catch(() => false);
+        if (cambio) window.dispatchEvent(new Event("mitayo:catalogo"));
       }
 
       await enviarPendientesSunat().catch(() => {});

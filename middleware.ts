@@ -6,16 +6,11 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - images - .svg, .png, .jpg, .jpeg, .gif, .webp
-     * Feel free to modify this pattern to include more paths.
-     */
-    // sw.js, offline.html y el manifiesto: los usa el modo sin internet (no necesitan sesión)
-    "/((?!_next/static|_next/image|favicon.ico|sw.js|offline.html|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  /*
+   * Solo la entrada y las pantallas de inicio de sesión pasan por aquí.
+   * Las pantallas de trabajo (/protected/...) abren directo, sin esperar
+   * al servidor: la sesión se revisa en el mismo equipo (ver Guardia) y
+   * los datos los protege Supabase con sus reglas de seguridad.
+   */
+  matcher: ["/", "/auth/:path*"],
 };

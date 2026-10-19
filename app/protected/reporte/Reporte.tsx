@@ -97,10 +97,7 @@ export default function Reporte() {
 
   /* Se arma por adelantado: así al tocar «Enviar» se abre WhatsApp al toque */
   useEffect(() => {
-    if (!cargando && filas.length) {
-      void archivoPdf().catch(() => undefined);
-      void archivoExcel().catch(() => undefined);
-    }
+    if (!cargando && filas.length) void archivoExcel().catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cargando, clave]);
 
@@ -113,47 +110,43 @@ export default function Reporte() {
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
   }
 
+  /* Un solo archivo: el Excel del mes */
   async function enviarWhatsapp() {
     setTrabajando("wa");
     setError(null);
     try {
-      const [pdf, excel] = await Promise.all([archivoPdf(), archivoExcel()]);
-      const texto = `Hola, te envío el registro de ventas de ${nombreMes(mes)} de ${negocio} en PDF y Excel. Total neto: S/ ${d2(r.neto)}.`;
+      const excel = await archivoExcel();
+      const texto = `Hola, te envío el registro de ventas de ${nombreMes(mes)} de ${negocio}. Total neto: S/ ${d2(r.neto)}.`;
       const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
-      const puede = (files: File[]) => !!nav.canShare && nav.canShare({ files });
+      const puede = (f: File) => !!nav.canShare && nav.canShare({ files: [f] });
+      // Algunos celulares no dejan compartir .xlsx: entonces va como .csv (se abre igual con Excel)
+      const archivo = puede(excel) ? excel : puede(archivoCsv()) ? archivoCsv() : null;
 
-      // Lo mejor que acepte este equipo: PDF + Excel; si no, PDF + CSV
-      const juntos = puede([pdf, excel]) ? [pdf, excel] : puede([pdf, archivoCsv()]) ? [pdf, archivoCsv()] : null;
-
-      if (juntos) {
-        await nav.share({ files: juntos, title: `Ventas ${nombreMes(mes)}`, text: texto });
+      if (archivo) {
+        await nav.share({ files: [archivo], text: texto });
         marcarEnviado(mes);
       } else {
         setSinCompartir(true);
-        abrirChatConArchivos(pdf, excel);
+        abrirChatConArchivos();
       }
     } catch (e) {
       if (e instanceof DOMException && e.name === "NotAllowedError") {
-        // 1ª vez puede ser que el archivo tardó en armarse; 2ª vez: el navegador lo bloquea
         fallosCompartir.current++;
         if (fallosCompartir.current >= 2) setSinCompartir(true);
         else setError("Vuelve a tocar «Enviar ventas a contadora».");
-      }
-      else if (!(e instanceof DOMException && e.name === "AbortError")) setError(e instanceof Error ? e.message : "No se pudo armar el reporte.");
+      } else if (!(e instanceof DOMException && e.name === "AbortError")) setError(e instanceof Error ? e.message : "No se pudo armar el Excel.");
     } finally {
       setTrabajando(null);
     }
   }
 
-  /* Sin «Compartir»: descarga PDF y Excel y abre el chat de la contadora (se adjuntan con 📎) */
-  function abrirChatConArchivos(pdf?: File, excel?: File) {
-    const p = pdf ?? pdfListo.current?.archivo;
-    const x = excel ?? excelListo.current?.archivo;
+  /* Sin «Compartir»: descarga el Excel y abre el chat de la contadora (se adjunta con 📎) */
+  function abrirChatConArchivos() {
+    const x = excelListo.current?.archivo;
     const numero = (ctx?.whatsapp ?? "").replace(/\D/g, "");
-    const texto = `Hola, te envío el registro de ventas de ${nombreMes(mes)} de ${negocio} en PDF y Excel. Total neto: S/ ${d2(r.neto)}.`;
+    const texto = `Hola, te envío el registro de ventas de ${nombreMes(mes)} de ${negocio}. Total neto: S/ ${d2(r.neto)}.`;
     window.open(`https://wa.me/${numero ? `51${numero.slice(-9)}` : ""}?text=${encodeURIComponent(texto)}`, "_blank", "noopener");
-    if (p) descargar(p, p.name);
-    if (x) setTimeout(() => descargar(x, x.name), 400);
+    if (x) descargar(x, x.name);
     marcarEnviado(mes);
   }
 
@@ -248,7 +241,7 @@ export default function Reporte() {
           className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#25a244] text-lg font-extrabold text-white disabled:opacity-50"
         >
           <IconoWhatsapp className="h-6 w-6" />
-          {trabajando === "wa" ? "Preparando PDF y Excel…" : "Enviar ventas a contadora"}
+          {trabajando === "wa" ? "Preparando el Excel…" : "Enviar ventas a contadora"}
         </button>
         {sinCompartir && (
           <div className="space-y-2 rounded-xl border-2 border-orange-300 bg-orange-50 p-3 text-sm text-orange-900">
@@ -256,13 +249,13 @@ export default function Reporte() {
               <b>Este navegador no deja adjuntar archivos solo</b> (pasa con Brave). Para que sea con un toque, abre la plataforma en <b>Google Chrome</b> o{" "}
               <b>Microsoft Edge</b>.
             </p>
-            <p>Por ahora: toca el botón de abajo, se abre el chat de la contadora y se descargan el PDF y el Excel; arrástralos al chat o adjúntalos con 📎.</p>
+            <p>Por ahora: toca el botón de abajo, se abre el chat de la contadora y se descarga el Excel; arrástralo al chat o adjúntalo con 📎.</p>
             <button
               type="button"
               onClick={() => abrirChatConArchivos()}
               className="h-11 w-full rounded-xl border-2 border-[#1d6b34] bg-white font-bold text-[#14532d]"
             >
-              Abrir WhatsApp de la contadora y descargar los archivos
+              Abrir WhatsApp de la contadora y descargar el Excel
             </button>
           </div>
         )}
@@ -275,7 +268,7 @@ export default function Reporte() {
           </button>
         </div>
         <p className="text-xs text-gray-500">
-          Se abre «Compartir» con el PDF y el Excel juntos → WhatsApp → elige a tu contadora → enviar. Llevan todos los comprobantes del mes, las anuladas y sus notas de crédito.
+          Se abre «Compartir» con el Excel del mes → WhatsApp → contadora → enviar. Lleva todos los comprobantes, las anuladas y sus notas de crédito.
         </p>
       </section>
 

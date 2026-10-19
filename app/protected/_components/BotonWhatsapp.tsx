@@ -35,13 +35,17 @@ export default function BotonWhatsapp({ datos, traer, grande, etiqueta, alError 
   useEffect(() => {
     if (!datos) return;
     let vivo = true;
-    void comprobantePdf(datos)
-      .then((file) => {
-        if (vivo) archivo.current = { clave, file, texto: textoMensaje(datos) };
-      })
-      .catch(() => undefined);
+    // Un momento después, para que la pantalla de la venta aparezca primero
+    const t = setTimeout(() => {
+      void comprobantePdf(datos)
+        .then((file) => {
+          if (vivo) archivo.current = { clave, file, texto: textoMensaje(datos) };
+        })
+        .catch(() => undefined);
+    }, 700);
     return () => {
       vivo = false;
+      clearTimeout(t);
     };
   }, [datos, clave]);
 
