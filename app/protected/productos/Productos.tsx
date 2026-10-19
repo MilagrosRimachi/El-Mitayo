@@ -5,8 +5,9 @@ import { createClient } from "@/lib/supabase/client";
 import { guardarProducto, quitarProducto } from "@/lib/local";
 import { d2 } from "@/lib/ticket";
 import { UNIDADES } from "@/lib/unidades";
+import { CATEGORIAS, categoriaValida, iconoCategoria, nombreCategoria } from "@/lib/categorias";
 
-type Fila = { id: number; codigo: string; nombre: string; unidad: string; precio: number; activo: boolean };
+type Fila = { id: number; codigo: string; nombre: string; unidad: string; precio: number; activo: boolean; categoria: string };
 
 
 function normalizar(t: string): string {
@@ -26,7 +27,8 @@ export default function Productos() {
   const [busqueda, setBusqueda] = useState("");
   const [verInactivos, setVerInactivos] = useState(false);
   const [editando, setEditando] = useState<Fila | null>(null);
-  const [nuevo, setNuevo] = useState<{ nombre: string; precio: string; unidad: string } | null>(null);
+  const [nuevo, setNuevo] = useState<{ nombre: string; precio: string; unidad: string; categoria: string } | null>(null);
+  const [categoria, setCategoria] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [importando, setImportando] = useState(false);
 
@@ -37,7 +39,7 @@ export default function Productos() {
     for (let desde = 0; desde < 50_000; desde += 1000) {
       const { data, error: e } = await sb
         .from("productos")
-        .select("id, codigo, nombre, unidad, precio, activo")
+        .select("id, codigo, nombre, unidad, precio, activo, categoria")
         .order("nombre")
         .range(desde, desde + 999);
       if (e) {
@@ -61,9 +63,10 @@ export default function Productos() {
     const palabras = q ? q.split(/\s+/) : [];
     return todos
       .filter((p) => (verInactivos ? !p.activo : p.activo))
+      .filter((p) => !categoria || (p.categoria || "OTROS") === categoria)
       .filter((p) => palabras.every((w) => normalizar(`${p.nombre} ${p.codigo}`).includes(w)))
       .slice(0, 200);
-  }, [todos, busqueda, verInactivos]);
+  }, [todos, busqueda, verInactivos, categoria]);
 
   const activos = todos.filter((p) => p.activo).length;
 
@@ -78,14 +81,14 @@ export default function Productos() {
     const sb = createClient();
     const { error: e } = await sb
       .from("productos")
-      .update({ nombre: editando.nombre.trim().toUpperCase(), precio: Math.round(precio * 100) / 100, unidad: editando.unidad, activo: editando.activo, actualizado_en: new Date().toISOString() })
+      .update({ nombre: editando.nombre.trim().toUpperCase(), precio: Math.round(precio * 100) / 100, unidad: editando.unidad, activo: editando.activo, categoria: editando.categoria || "OTROS", actualizado_en: new Date().toISOString() })
       .eq("id", editando.id);
     setGuardando(false);
     if (e) return setMensaje(e.message);
 
     const p = { ...editando, nombre: editando.nombre.trim().toUpperCase(), precio: Math.round(precio * 100) / 100 };
     setTodos((t) => t.map((x) => (x.id === p.id ? p : x)));
-    if (p.activo) await guardarProducto({ id: p.id, codigo: p.codigo, nombre: p.nombre, unidad: p.unidad, precio: p.precio }).catch(() => {});
+    if (p.activo) await guardarProducto({ id: p.id, codigo: p.codigo, nombre: p.nombre, unidad: p.unidad, precio: p.precio, categoria: p.categoria }).catch(() => {});
     else await quitarProducto(p.id).catch(() => {});
     window.dispatchEvent(new Event("mitayo:catalogo"));
     setEditando(null);
@@ -108,15 +111,15 @@ export default function Productos() {
     }
     const { data, error: e } = await sb
       .from("productos")
-      .insert({ codigo: String(cod.data), nombre: nuevo.nombre.trim().toUpperCase(), precio: Math.round(precio * 100) / 100, unidad: nuevo.unidad })
-      .select("id, codigo, nombre, unidad, precio, activo")
+      .insert({ codigo: String(cod.data), nombre: nuevo.nombre.trim().toUpperCase(), precio: Math.round(precio * 100) / 100, unidad: nuevo.unidad, categoria: nuevo.categoria || "OTROS" })
+      .select("id, codigo, nombre, unidad, precio, activo, categoria")
       .single();
     setGuardando(false);
     if (e) return setMensaje(e.message);
 
     const p = { ...(data as Fila), precio: Number((data as Fila).precio) };
     setTodos((t) => [p, ...t]);
-    await guardarProducto({ id: p.id, codigo: p.codigo, nombre: p.nombre, unidad: p.unidad, precio: p.precio }).catch(() => {});
+    await guardarProducto({ id: p.id, codigo: p.codigo, nombre: p.nombre, unidad: p.unidad, precio: p.precio, categoria: p.categoria }).catch(() => {});
     window.dispatchEvent(new Event("mitayo:catalogo"));
     setNuevo(null);
     setMensaje(`✔ Producto creado con el código ${p.codigo}. Ya se puede vender.`);
@@ -143,6 +146,7 @@ export default function Productos() {
       const cNom = col("NOMBRE");
       const cUni = col("UNIDADDEMEDIDA", "UNIDAD");
       const cPre = col("PRECIO");
+      const cCat = col("CATEGORIA");
 
       const filas = matriz
         .slice(filaTitulos + 1)
@@ -151,6 +155,7 @@ export default function Productos() {
           nombre: String((r[cDesc] as string) || (cNom >= 0 ? (r[cNom] as string) : "") || "").replace(/\s+/g, " ").trim(),
           unidad: cUni >= 0 ? String(r[cUni] ?? "").trim().toUpperCase() || "NIU" : "NIU",
           precio: num(String(r[cPre] ?? "")),
+          categoria: cCat >= 0 ? categoriaValida(String(r[cCat] ?? "")) : null,
         }))
         .filter((f) => f.nombre && Number.isFinite(f.precio));
 
@@ -183,8 +188,8 @@ export default function Productos() {
   async function descargar() {
     const XLSX = await import("xlsx");
     const hoja = XLSX.utils.aoa_to_sheet([
-      ["Código", "Nombre", "Unidad", "Precio", "Activo"],
-      ...todos.map((p) => [p.codigo, p.nombre, p.unidad, p.precio, p.activo ? "Sí" : "No"]),
+      ["Código", "Nombre", "Categoría", "Unidad", "Precio", "Activo"],
+      ...todos.map((p) => [p.codigo, p.nombre, p.categoria || "OTROS", p.unidad, p.precio, p.activo ? "Sí" : "No"]),
     ]);
     const libro = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(libro, hoja, "Productos");
@@ -201,7 +206,7 @@ export default function Productos() {
           <p className="text-sm text-gray-600">{activos} productos a la venta</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setNuevo({ nombre: "", precio: "", unidad: "NIU" })} className="h-10 rounded-lg bg-[#b8336a] px-4 text-sm font-bold text-white">
+          <button type="button" onClick={() => setNuevo({ nombre: "", precio: "", unidad: "NIU", categoria: categoria || "FERRETERÍA" })} className="h-10 rounded-lg bg-[#b8336a] px-4 text-sm font-bold text-white">
             + Producto nuevo
           </button>
           <label className="flex h-10 cursor-pointer items-center rounded-lg border-2 border-[#b8336a] bg-white px-3 text-sm font-semibold text-[#5c1a37]">
@@ -223,6 +228,12 @@ export default function Productos() {
           <div>
             <label htmlFor="n-nombre" className="mb-1 block text-sm">Nombre</label>
             <input id="n-nombre" value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} className={campo} placeholder="Ej. MARTILLO DE UÑA 16 OZ" />
+          </div>
+          <div>
+            <label htmlFor="n-cat" className="mb-1 block text-sm">Categoría</label>
+            <select id="n-cat" value={nuevo.categoria} onChange={(e) => setNuevo({ ...nuevo, categoria: e.target.value })} className={`${campo} bg-white`}>
+              {CATEGORIAS.map((c) => <option key={c.nombre} value={c.nombre}>{c.icono} {nombreCategoria(c.nombre)}</option>)}
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -247,6 +258,10 @@ export default function Productos() {
 
       <div className="flex flex-wrap items-center gap-3">
         <input aria-label="Buscar producto" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar por nombre o código" className="h-11 min-w-0 flex-1 rounded-xl border bg-white px-4" />
+        <select aria-label="Categoría" value={categoria} onChange={(e) => setCategoria(e.target.value)} className="h-11 rounded-xl px-2">
+          <option value="">Todas las categorías</option>
+          {CATEGORIAS.map((c) => <option key={c.nombre} value={c.nombre}>{c.icono} {nombreCategoria(c.nombre)}</option>)}
+        </select>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={verInactivos} onChange={(e) => setVerInactivos(e.target.checked)} />
           Ver los quitados de la venta
@@ -268,6 +283,9 @@ export default function Productos() {
                   <select aria-label="Unidad" value={editando.unidad} onChange={(e) => setEditando({ ...editando, unidad: e.target.value })} className="h-10 rounded-lg border bg-white px-2">
                     {UNIDADES.map(([c, t]) => <option key={c} value={c}>{t}</option>)}
                   </select>
+                  <select aria-label="Categoría" value={editando.categoria || "OTROS"} onChange={(e) => setEditando({ ...editando, categoria: e.target.value })} className="h-10 rounded-lg border bg-white px-2">
+                    {CATEGORIAS.map((c) => <option key={c.nombre} value={c.nombre}>{c.icono} {nombreCategoria(c.nombre)}</option>)}
+                  </select>
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" checked={editando.activo} onChange={(e) => setEditando({ ...editando, activo: e.target.checked })} />
                     A la venta
@@ -282,7 +300,7 @@ export default function Productos() {
                   <span className="min-w-0">
                     <span className="block truncate font-medium">{p.nombre}</span>
                     <span className="text-xs text-gray-500">
-                      {p.codigo} · {UNIDADES.find(([c]) => c === p.unidad)?.[1] ?? p.unidad}
+                      {p.codigo} · {UNIDADES.find(([c]) => c === p.unidad)?.[1] ?? p.unidad} · {iconoCategoria(p.categoria)} {nombreCategoria(p.categoria)}
                     </span>
                   </span>
                   <span className="flex shrink-0 items-center gap-3">

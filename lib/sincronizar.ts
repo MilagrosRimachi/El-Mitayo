@@ -124,7 +124,7 @@ export async function bajarCatalogo(): Promise<Producto[] | null> {
   for (let desde = 0; desde < 50_000; desde += pagina) {
     const { data, error } = await sb
       .from("productos")
-      .select("id, codigo, nombre, unidad, precio")
+      .select("id, codigo, nombre, unidad, precio, categoria")
       .eq("activo", true)
       .order("id")
       .range(desde, desde + pagina - 1)
@@ -135,8 +135,8 @@ export async function bajarCatalogo(): Promise<Producto[] | null> {
       return null;
     }
 
-    const filas = (data ?? []) as Array<{ id: number; codigo: string; nombre: string; unidad: string; precio: number | string }>;
-    for (const f of filas) todos.push({ id: Number(f.id), codigo: f.codigo, nombre: f.nombre, unidad: f.unidad, precio: Number(f.precio) });
+    const filas = (data ?? []) as Array<{ id: number; codigo: string; nombre: string; unidad: string; precio: number | string; categoria: string | null }>;
+    for (const f of filas) todos.push({ id: Number(f.id), codigo: f.codigo, nombre: f.nombre, unidad: f.unidad, precio: Number(f.precio), categoria: f.categoria || "OTROS" });
     if (filas.length < pagina) break;
   }
 

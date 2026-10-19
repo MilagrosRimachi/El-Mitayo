@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { CATEGORIAS, iconoCategoria, nombreCategoria } from "@/lib/categorias";
 import { consultarDocumento, enviarSunat } from "../acciones";
 import {
   guardarVentaLocal,
@@ -91,7 +93,12 @@ export default function PuntoVenta() {
   const [error, setError] = useState<string | null>(null);
   const [cobrando, setCobrando] = useState(false);
   const [resultado, setResultado] = useState<Resultado | null>(null);
-  const [nuevo, setNuevo] = useState<{ nombre: string; unidad: string; precio: string; guardar: boolean } | null>(null);
+  const [nuevo, setNuevo] = useState<{ nombre: string; unidad: string; precio: string; guardar: boolean; categoria: string } | null>(null);
+  // «Por categoría» o «Todos los productos» (botones del menú)
+  const parametros = useSearchParams();
+  const vista: "categorias" | "todos" = parametros.get("vista") === "todos" ? "todos" : "categorias";
+  const [catSel, setCatSel] = useState<string | null>(null);
+  useEffect(() => setCatSel(null), [vista]);
   const [guardandoNuevo, setGuardandoNuevo] = useState(false);
   const [marcado, setMarcado] = useState(0);
   const [editProd, setEditProd] = useState<{ id: number; nombre: string; precio: string } | null>(null);
@@ -128,8 +135,19 @@ export default function PuntoVenta() {
   const [uso, setUso] = useState<Record<string, number>>({});
   useEffect(() => setUso(leerUso()), [resultado]);
 
+  const conteo = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of productos) m.set(p.categoria || "OTROS", (m.get(p.categoria || "OTROS") ?? 0) + 1);
+    return m;
+  }, [productos]);
+
+  // En «Por categoría», sin elegir categoría ni buscar: se muestran los cuadros de categorías
+  const verCuadros = vista === "categorias" && !catSel && !busqueda.trim();
+
   const encontrados = useMemo(() => {
     const q = normalizar(busqueda.trim());
+    const enCat = (p: Producto) => !catSel || (p.categoria || "OTROS") === catSel;
+    if (catSel && !q) return productos.filter(enCat).slice(0, 300);
     if (!q) {
       // Sin búsqueda: los más vendidos en este equipo (o los primeros de la lista)
       const usados = productos.filter((p) => uso[p.id]).sort((a, b) => (uso[b.id] ?? 0) - (uso[a.id] ?? 0));
@@ -140,13 +158,13 @@ export default function PuntoVenta() {
     for (let k = 0; k < productos.length; k++) {
       const p = productos[k];
       const texto = indice[k];
-      if (palabras.every((w) => texto.includes(w))) {
+      if (enCat(p) && palabras.every((w) => texto.includes(w))) {
         salida.push(p);
         if (salida.length >= 60) break;
       }
     }
     return salida;
-  }, [busqueda, productos, indice, uso]);
+  }, [busqueda, productos, indice, uso, catSel]);
 
   const total = useMemo(() => Math.round(carrito.reduce((s, i) => s + importeDe(i), 0) * 100) / 100, [carrito]);
   const vuelto = metodo === "EFECTIVO" && num(recibido) > 0 ? Math.round((num(recibido) - total) * 100) / 100 : null;
@@ -197,12 +215,12 @@ export default function PuntoVenta() {
         if (cod.error) throw new Error(cod.error.message);
         const ins = await sb
           .from("productos")
-          .insert({ codigo: String(cod.data), nombre: nombreP, precio: precioP, unidad: nuevo.unidad })
+          .insert({ codigo: String(cod.data), nombre: nombreP, precio: precioP, unidad: nuevo.unidad, categoria: nuevo.categoria })
           .select("id, codigo, nombre, unidad, precio")
           .single();
         if (ins.error) throw new Error(ins.error.message);
         const fila = ins.data as { id: number; codigo: string };
-        p = { id: Number(fila.id), codigo: String(fila.codigo), nombre: nombreP, unidad: nuevo.unidad, precio: precioP };
+        p = { id: Number(fila.id), codigo: String(fila.codigo), nombre: nombreP, unidad: nuevo.unidad, precio: precioP, categoria: nuevo.categoria };
         await guardarProducto(p).catch(() => {});
         setProductos((lista) => [...lista, p as Producto].sort((a, b) => a.nombre.localeCompare(b.nombre)));
       } catch (er) {
@@ -480,6 +498,32 @@ export default function PuntoVenta() {
       <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
         {/* ================= IZQUIERDA: productos en tarjetas ================= */}
         <section className="min-w-0 space-y-3 lg:col-span-7 xl:col-span-8">
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              href="/protected/vender?vista=categorias"
+              className={`flex h-11 items-center justify-center gap-2 rounded-xl border-2 text-sm font-extrabold ${vista === "categorias" ? "border-[#b8336a] bg-[#b8336a] text-white" : "border-[#b8336a] bg-white text-[#5c1a37]"}`}
+            >
+              🗂 Por categoría
+            </Link>
+            <Link
+              href="/protected/vender?vista=todos"
+              className={`flex h-11 items-center justify-center gap-2 rounded-xl border-2 text-sm font-extrabold ${vista === "todos" ? "border-[#b8336a] bg-[#b8336a] text-white" : "border-[#b8336a] bg-white text-[#5c1a37]"}`}
+            >
+              📋 Todos los productos
+            </Link>
+          </div>
+
+          {vista === "categorias" && catSel && (
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setCatSel(null)} className="h-9 rounded-lg border bg-white px-3 text-sm font-bold">
+                ← Categorías
+              </button>
+              <p className="text-lg font-extrabold text-[#5c1a37]">
+                {iconoCategoria(catSel)} {nombreCategoria(catSel)} <span className="text-sm font-semibold text-gray-500">({conteo.get(catSel) ?? 0})</span>
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <input
               id="buscar"
@@ -490,7 +534,7 @@ export default function PuntoVenta() {
                 setMarcado(0);
               }}
               onKeyDown={teclaBuscador}
-              placeholder="🔍 Buscar producto por nombre o código…"
+              placeholder={catSel ? `🔍 Buscar en ${nombreCategoria(catSel)}…` : "🔍 Buscar producto por nombre o código…"}
               aria-label="Buscar producto"
               autoComplete="off"
               inputMode="search"
@@ -499,7 +543,7 @@ export default function PuntoVenta() {
             />
             <button
               type="button"
-              onClick={() => setNuevo({ nombre: busqueda.trim(), unidad: "NIU", precio: "", guardar: true })}
+              onClick={() => setNuevo({ nombre: busqueda.trim(), unidad: "NIU", precio: "", guardar: true, categoria: catSel ?? "OTROS" })}
               className="h-12 shrink-0 rounded-xl bg-[#b8336a] px-4 text-sm font-bold text-white"
             >
               + Nuevo
@@ -509,6 +553,13 @@ export default function PuntoVenta() {
           {nuevo && (
             <form onSubmit={agregarNuevo} className="space-y-2 rounded-xl border-2 border-[#b8336a] bg-white p-3">
               <p className="text-sm font-bold text-[#5c1a37]">Producto nuevo</p>
+              <select aria-label="Categoría" value={nuevo.categoria} onChange={(e) => setNuevo({ ...nuevo, categoria: e.target.value })} className="h-10 w-full rounded-lg px-2">
+                {CATEGORIAS.map((c) => (
+                  <option key={c.nombre} value={c.nombre}>
+                    {c.icono} {nombreCategoria(c.nombre)}
+                  </option>
+                ))}
+              </select>
               <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_9rem_8rem]">
                 <input
                   aria-label="Nombre del producto nuevo"
@@ -549,14 +600,37 @@ export default function PuntoVenta() {
               No se encontró «{busqueda}». Toca <b>+ Nuevo</b> para agregarlo.
             </p>
           )}
-          {!busqueda.trim() && encontrados.length > 0 && (
+          {verCuadros && productos.length > 0 && (
+            <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+              {CATEGORIAS.filter((c) => (conteo.get(c.nombre) ?? 0) > 0).map((c) => (
+                <li key={c.nombre}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCatSel(c.nombre);
+                      setBusqueda("");
+                    }}
+                    className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded-xl border-2 border-[#f0bfd1] bg-white px-2 text-center shadow-sm hover:border-[#b8336a] active:scale-[0.98]"
+                  >
+                    <span className="text-3xl" aria-hidden="true">
+                      {c.icono}
+                    </span>
+                    <span className="text-[13px] font-extrabold uppercase leading-tight text-[#5c1a37]">{nombreCategoria(c.nombre)}</span>
+                    <span className="text-[11px] text-gray-500">{conteo.get(c.nombre)} productos</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {!verCuadros && !busqueda.trim() && !catSel && encontrados.length > 0 && (
             <p className="text-xs font-semibold text-[#6e1f42]">{Object.keys(uso).length ? "Los más vendidos" : "Productos"} · escribe arriba para buscar entre {productos.length}</p>
           )}
 
-          <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+          <ul className={`grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4 ${verCuadros ? "hidden" : ""}`}>
             {encontrados.map((p, k) => (
               // En el celular, sin búsqueda, solo 8 tarjetas: así la venta queda a la vista
-              <li key={p.id} className={!busqueda.trim() && k >= 8 ? "max-lg:hidden" : ""}>
+              <li key={p.id} className={!busqueda.trim() && !catSel && k >= 8 ? "max-lg:hidden" : ""}>
                 {editProd?.id === p.id ? (
                   /* ---- Cambiar nombre y precio del producto (queda guardado) ---- */
                   <form

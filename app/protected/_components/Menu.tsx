@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useSinConexion } from "@/lib/sincronizar";
 
 /* [ruta, texto largo, texto corto (celular), icono] */
@@ -22,7 +22,13 @@ function Icono({ d, className = "h-[22px] w-[22px]" }: { d: string; className?: 
   );
 }
 
-export default function Menu() {
+/* El menú lee «?vista=» para marcar «Por categoría» o «Todos» */
+export function MenuConVista() {
+  const vista = useSearchParams().get("vista");
+  return <Menu vista={vista === "todos" ? "todos" : "categorias"} />;
+}
+
+export default function Menu({ vista = null }: { vista?: "categorias" | "todos" | null }) {
   const ruta = usePathname();
   const sinConexion = useSinConexion();
 
@@ -42,19 +48,44 @@ export default function Menu() {
         <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Menú">
           {OPCIONES.map(([href, texto, , icono]) => {
             const activa = ruta.startsWith(href);
+            const esVender = href === "/protected/vender";
             return (
-              <Link
-                key={href}
-                href={href}
-                className={`flex items-center gap-3 rounded-xl border-2 px-3 py-2.5 text-[15px] font-bold transition ${
-                  activa
-                    ? "border-[#b8336a] bg-[#b8336a] text-white shadow"
-                    : "border-transparent text-[#5c1a37] hover:border-[#b8336a] hover:bg-white/70"
-                }`}
-              >
-                <Icono d={icono} />
-                {texto}
-              </Link>
+              <div key={href}>
+                <Link
+                  href={esVender ? "/protected/vender?vista=categorias" : href}
+                  className={`flex items-center gap-3 rounded-xl border-2 px-3 py-2.5 text-[15px] font-bold transition ${
+                    activa
+                      ? "border-[#b8336a] bg-[#b8336a] text-white shadow"
+                      : "border-transparent text-[#5c1a37] hover:border-[#b8336a] hover:bg-white/70"
+                  }`}
+                >
+                  <Icono d={icono} />
+                  {texto}
+                </Link>
+                {esVender && (
+                  <div className="ml-6 mt-1 space-y-1 border-l-2 border-[#e79bb8] pl-2">
+                    {(
+                      [
+                        ["categorias", "🗂 Por categoría"],
+                        ["todos", "📋 Todos los productos"],
+                      ] as const
+                    ).map(([v, t]) => {
+                      const marcada = activa && vista === v;
+                      return (
+                        <Link
+                          key={v}
+                          href={`/protected/vender?vista=${v}`}
+                          className={`block rounded-lg border-2 px-2.5 py-1.5 text-[13px] font-bold ${
+                            marcada ? "border-[#b8336a] bg-white text-[#b8336a]" : "border-transparent text-[#5c1a37] hover:border-[#b8336a] hover:bg-white/70"
+                          }`}
+                        >
+                          {t}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>

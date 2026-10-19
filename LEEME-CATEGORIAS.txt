@@ -1,0 +1,35 @@
+=====================================================================
+  EL MITAYO — CATEGORÍAS DE PRODUCTOS
+=====================================================================
+
+ORDEN PARA INSTALAR (importante: primero Supabase)
+1. Supabase de EL MITAYO → SQL Editor → New query →
+   pega TODO  supabase/05_categorias.sql  → RUN.
+   Al final muestra cuántos productos quedaron en cada categoría.
+   (Si no ejecutaste el 04_series_nuevas.sql, ejecútalo también.)
+2. Descomprime el zip dentro de  C:\Users\MILAGROS\el-mitayo\el-mitayo
+   → Reemplazar los archivos.
+3. En la terminal:   npm run build
+   y si sale bien:   git add .
+                     git commit -m "categorias"
+                     git push
+4. En 2-3 minutos: el-mitayo.netlify.app (Ctrl + Shift + R).
+
+QUÉ HAY DE NUEVO
+- Menú izquierdo: debajo de "Vender" hay dos botones
+    🗂 Por categoría     📋 Todos los productos
+  (también están arriba de la pantalla Vender, para el celular).
+- Por categoría: cuadros con las 16 categorías y cuántos productos
+  tiene cada una. Tocas una → salen sus productos y puedes buscar
+  dentro de esa categoría. "← Categorías" para volver.
+- Todos los productos: los más vendidos y el buscador de siempre.
+- Productos: cada producto muestra su categoría; se puede filtrar,
+  cambiar con ✏ Editar, y elegir al crear uno nuevo.
+- Excel: "Descargar Excel" trae la columna Categoría, y "Subir
+  Excel" también la lee (para cambiar muchas categorías a la vez).
+
+CATEGORÍAS
+Ferretería · Herramientas · Electricidad · Gasfitería · Construcción ·
+Pinturas · Bazar · Abarrotes · Bebidas y licores · Golosinas y snacks ·
+Limpieza · Cuidado personal · Botica · Motos y autos ·
+Mascotas y campo · Otros

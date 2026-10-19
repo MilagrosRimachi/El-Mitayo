@@ -1,4 +1,5 @@
-import Menu from "./_components/Menu";
+import { Suspense } from "react";
+import Menu, { MenuConVista } from "./_components/Menu";
 import Sincronizador from "./_components/Sincronizador";
 import AvisoContadora from "./_components/AvisoContadora";
 import Guardia from "./_components/Guardia";
@@ -8,7 +9,9 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-svh pb-24 lg:pb-0 lg:pl-60">
       <Guardia />
-      <Menu />
+      <Suspense fallback={<Menu />}>
+        <MenuConVista />
+      </Suspense>
       <Sincronizador />
       <AvisoContadora />
       <main className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-5 lg:px-8 lg:py-6">{children}</main>

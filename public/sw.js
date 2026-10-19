@@ -7,7 +7,7 @@
    Todo lo demás va siempre a internet.
    ============================================================ */
 
-const VERSION = "mitayo-v2";
+const VERSION = "mitayo-v3";
 const PAGINAS = `${VERSION}-paginas`;
 const ARCHIVOS = `${VERSION}-archivos`;
 const MAX_ARCHIVOS = 600;

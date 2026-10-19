@@ -5,7 +5,7 @@
    - kv: datos del negocio, último número de boleta/factura, etc.
    ============================================================ */
 
-export type Producto = { id: number; codigo: string; nombre: string; unidad: string; precio: number };
+export type Producto = { id: number; codigo: string; nombre: string; unidad: string; precio: number; categoria?: string };
 
 export type Cliente = { tipo_doc: "0" | "1" | "6" | "4"; numero: string; nombre: string; direccion?: string | null };
 
