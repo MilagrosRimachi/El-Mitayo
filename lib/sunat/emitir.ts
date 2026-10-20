@@ -148,7 +148,7 @@ function usuarioYClave(cfg: ConfigSunat): { usuario: string; clave: string } {
   const ruc = cfg.ruc ?? "";
   return cfg.ambiente === "BETA"
     ? { usuario: `${ruc}MODDATOS`, clave: "moddatos" }
-    : { usuario: `${ruc}${(cfg.usuario_sol ?? "").toUpperCase()}`, clave: descifrar(cfg.clave_sol_cifrada as string) };
+    : { usuario: `${ruc}${(cfg.usuario_sol ?? "").trim()}`, clave: descifrar(cfg.clave_sol_cifrada as string) };
 }
 
 /* Guarda lo que SUNAT respondió en una consulta (cuando ya lo tenía registrado) */

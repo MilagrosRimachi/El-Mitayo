@@ -308,8 +308,9 @@ export async function guardarClaveSol(usuario: string, clave: string): Promise<R
   const admin = crearClienteAdmin();
   if (!admin) return { ok: false, error: MENSAJE_FALTA_CLAVE };
 
-  const u = usuario.trim().toUpperCase();
-  if (!/^[A-Z0-9]{3,20}$/.test(u)) return { ok: false, error: "Escribe solo el usuario secundario (sin el RUC), por ejemplo MITAYO01." };
+  // Se guarda tal como se escribe (mayúsculas y minúsculas), solo sin espacios
+  const u = usuario.replace(/\s+/g, "");
+  if (!/^[A-Za-z0-9]{3,20}$/.test(u)) return { ok: false, error: "Escribe solo el usuario secundario (sin el RUC), por ejemplo MITAYO01." };
 
   const cambios: Record<string, string> = { usuario_sol: u, actualizado_en: new Date().toISOString() };
 

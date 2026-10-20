@@ -270,7 +270,7 @@ function ClaveSol({ config, alGuardar }: { config: ConfigVista; alGuardar: () =>
         El usuario que creas en SUNAT Operaciones en Línea con permiso de «Emisión electrónica». Solo el usuario (ej. MITAYO01), sin el RUC delante.
         {config.tiene_clave_sol && " Ya hay una clave guardada."}
       </p>
-      <input className={campo} placeholder="Usuario" value={usuario} onChange={(e) => setUsuario(e.target.value.toUpperCase())} autoComplete="off" />
+      <input className={campo} placeholder="Usuario" value={usuario} onChange={(e) => setUsuario(e.target.value)} autoComplete="off" />
       <input className={campo} type="password" placeholder="Clave" value={clave} onChange={(e) => setClave(e.target.value)} autoComplete="off" />
       <Mensaje r={r} />
       <button className={boton} disabled={!usuario || !clave || guardando}>{guardando ? "Guardando…" : "Guardar usuario SOL"}</button>
