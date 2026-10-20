@@ -248,6 +248,7 @@ function Certificado({ config, alGuardar }: { config: ConfigVista; alGuardar: ()
 function ClaveSol({ config, alGuardar }: { config: ConfigVista; alGuardar: () => void }) {
   const [usuario, setUsuario] = useState(config.usuario_sol);
   const [clave, setClave] = useState("");
+  const [verClave, setVerClave] = useState(false);
   const [r, setR] = useState<{ ok: boolean; texto: string } | null>(null);
   const [guardando, setGuardando] = useState(false);
 
@@ -271,7 +272,17 @@ function ClaveSol({ config, alGuardar }: { config: ConfigVista; alGuardar: () =>
         {config.tiene_clave_sol && " Ya hay una clave guardada."}
       </p>
       <input className={campo} placeholder="Usuario" value={usuario} onChange={(e) => setUsuario(e.target.value)} autoComplete="off" />
-      <input className={campo} type="password" placeholder="Clave" value={clave} onChange={(e) => setClave(e.target.value)} autoComplete="off" />
+      <div className="flex gap-2">
+        <input className={`${campo} flex-1`} type={verClave ? "text" : "password"} placeholder="Clave" value={clave} onChange={(e) => setClave(e.target.value)} autoComplete="off" />
+        <button
+          type="button"
+          onClick={() => setVerClave((v) => !v)}
+          className="shrink-0 rounded-xl border-2 border-[#b8336a] bg-white px-3 text-sm font-bold text-[#b8336a]"
+          aria-label={verClave ? "Ocultar clave" : "Ver clave"}
+        >
+          {verClave ? "🙈 Ocultar" : "👁 Ver"}
+        </button>
+      </div>
       <Mensaje r={r} />
       <button className={boton} disabled={!usuario || !clave || guardando}>{guardando ? "Guardando…" : "Guardar usuario SOL"}</button>
     </form>
