@@ -879,7 +879,7 @@ export default function PuntoVenta() {
                     className="h-10 w-full rounded-lg px-3"
                   />
                   {listaClientesAbierta && buscaCliente.trim() && (
-                    <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-y-auto rounded-lg border-2 border-[#b8336a] bg-white shadow-lg">
+                    <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 divide-y divide-[#f6d5e1] overflow-y-auto rounded-lg border-2 border-[#b8336a] bg-white shadow-lg">
                       {clientesEncontrados.length === 0 ? (
                         <li className="px-3 py-2 text-xs text-gray-500">
                           {tipo === "01" ? "No hay un cliente con RUC con ese nombre." : "No hay un cliente guardado con ese nombre."}
@@ -892,13 +892,11 @@ export default function PuntoVenta() {
                               onMouseDown={(e) => e.preventDefault()}
                               onClick={() => elegirCliente(c)}
                               onMouseEnter={() => setMarcadoCliente(i)}
-                              className={`block w-full px-3 py-2 text-left ${i === marcadoCliente ? "bg-[#fdf1f5]" : ""}`}
+                              title={c.direccion ? `${c.nombre} · ${c.direccion}` : c.nombre}
+                              className={`flex w-full items-center gap-2 px-3 py-1.5 text-left ${i === marcadoCliente ? "bg-[#fdf1f5]" : ""}`}
                             >
-                              <span className="block text-sm font-semibold text-[#5c1a37]">{c.nombre}</span>
-                              <span className="block text-xs text-gray-600">
-                                {c.tipo_doc === "6" ? "RUC" : "DNI"} {c.numero}
-                                {c.direccion ? ` · ${c.direccion}` : ""}
-                              </span>
+                              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[#5c1a37]">{c.nombre}</span>
+                              <span className="shrink-0 text-xs text-gray-500">{c.numero}</span>
                             </button>
                           </li>
                         ))
