@@ -113,6 +113,8 @@ export default function PuntoVenta() {
   const [buscaCliente, setBuscaCliente] = useState("");
   const [listaClientesAbierta, setListaClientesAbierta] = useState(false);
   const [marcadoCliente, setMarcadoCliente] = useState(0);
+  const [posLista, setPosLista] = useState<{ top: number; right: number; minWidth: number; maxWidth: number } | null>(null);
+  const cajaCliente = useRef<HTMLInputElement>(null);
   const [metodo, setMetodo] = useState("EFECTIVO");
   const [recibido, setRecibido] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -189,6 +191,24 @@ export default function PuntoVenta() {
       })
       .slice(0, 8);
   }, [buscaCliente, clientes, tipo]);
+
+  /* La lista flota sobre la pantalla (puede salir del panel hacia la izquierda) para ver el nombre completo */
+  const ubicarLista = useCallback(() => {
+    const r = cajaCliente.current?.getBoundingClientRect();
+    if (!r) return;
+    setPosLista({ top: r.bottom + 4, right: window.innerWidth - r.right, minWidth: r.width, maxWidth: Math.max(r.width, r.right - 8) });
+  }, []);
+
+  useEffect(() => {
+    if (!listaClientesAbierta) return;
+    ubicarLista();
+    window.addEventListener("resize", ubicarLista);
+    window.addEventListener("scroll", ubicarLista, true);
+    return () => {
+      window.removeEventListener("resize", ubicarLista);
+      window.removeEventListener("scroll", ubicarLista, true);
+    };
+  }, [listaClientesAbierta, ubicarLista]);
 
   function elegirCliente(c: ClienteGuardado) {
     setDocTipo(c.tipo_doc === "6" ? "RUC" : "DNI");
@@ -864,6 +884,7 @@ export default function PuntoVenta() {
                 {/* Buscar un cliente ya guardado escribiendo una palabra de su nombre */}
                 <div className="relative">
                   <input
+                    ref={cajaCliente}
                     aria-label="Buscar cliente guardado por nombre"
                     value={buscaCliente}
                     onChange={(e) => {
@@ -878,8 +899,10 @@ export default function PuntoVenta() {
                     autoComplete="off"
                     className="h-10 w-full rounded-lg px-3"
                   />
-                  {listaClientesAbierta && buscaCliente.trim() && (
-                    <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 divide-y divide-[#f6d5e1] overflow-y-auto rounded-lg border-2 border-[#b8336a] bg-white shadow-lg">
+                  {listaClientesAbierta && buscaCliente.trim() && posLista && (
+                    <ul
+                      style={{ top: posLista.top, right: posLista.right, minWidth: posLista.minWidth, maxWidth: posLista.maxWidth, width: "max-content" }}
+                      className="fixed z-50 max-h-72 divide-y divide-[#f6d5e1] overflow-y-auto rounded-lg border-2 border-[#b8336a] bg-white shadow-lg">
                       {clientesEncontrados.length === 0 ? (
                         <li className="px-3 py-2 text-xs text-gray-500">
                           {tipo === "01" ? "No hay un cliente con RUC con ese nombre." : "No hay un cliente guardado con ese nombre."}
@@ -892,10 +915,9 @@ export default function PuntoVenta() {
                               onMouseDown={(e) => e.preventDefault()}
                               onClick={() => elegirCliente(c)}
                               onMouseEnter={() => setMarcadoCliente(i)}
-                              title={c.direccion ? `${c.nombre} · ${c.direccion}` : c.nombre}
-                              className={`flex w-full items-center gap-2 px-3 py-1.5 text-left ${i === marcadoCliente ? "bg-[#fdf1f5]" : ""}`}
+                              className={`flex w-full items-center gap-3 px-3 py-1.5 text-left ${i === marcadoCliente ? "bg-[#fdf1f5]" : ""}`}
                             >
-                              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[#5c1a37]">{c.nombre}</span>
+                              <span className="min-w-0 flex-1 text-sm font-semibold text-[#5c1a37]">{c.nombre}</span>
                               <span className="shrink-0 text-xs text-gray-500">{c.numero}</span>
                             </button>
                           </li>
