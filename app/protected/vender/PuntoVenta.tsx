@@ -74,6 +74,27 @@ function importeDe(i: ItemCarrito): number {
   return Math.round(num(i.cantidad) * num(i.precio) * 100) / 100;
 }
 
+/* Clientes ya guardados: copia en el equipo para buscarlos por nombre (también sin internet) */
+type ClienteGuardado = { tipo_doc: string; numero: string; nombre: string; direccion: string | null };
+const CLAVE_CLIENTES = "mitayo_clientes";
+
+function clientesEnEquipo(): ClienteGuardado[] {
+  try {
+    const l = JSON.parse(localStorage.getItem(CLAVE_CLIENTES) ?? "[]") as ClienteGuardado[];
+    return Array.isArray(l) ? l : [];
+  } catch {
+    return [];
+  }
+}
+
+function guardarClientesEnEquipo(lista: ClienteGuardado[]) {
+  try {
+    localStorage.setItem(CLAVE_CLIENTES, JSON.stringify(lista));
+  } catch {
+    // nada
+  }
+}
+
 export default function PuntoVenta() {
   const sinConexion = useSinConexion();
   const [ctx, setCtx] = useState<Contexto | null>(null);
@@ -88,6 +109,12 @@ export default function PuntoVenta() {
   const [direccion, setDireccion] = useState("");
   const [buscandoDoc, setBuscandoDoc] = useState(false);
   const [avisoDoc, setAvisoDoc] = useState<string | null>(null);
+  const [clientes, setClientes] = useState<ClienteGuardado[]>([]);
+  const [buscaCliente, setBuscaCliente] = useState("");
+  const [listaClientesAbierta, setListaClientesAbierta] = useState(false);
+  const [marcadoCliente, setMarcadoCliente] = useState(0);
+  const [posLista, setPosLista] = useState<{ top: number; right: number; minWidth: number; maxWidth: number } | null>(null);
+  const cajaCliente = useRef<HTMLInputElement>(null);
   const [metodo, setMetodo] = useState("EFECTIVO");
   const [recibido, setRecibido] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -128,6 +155,87 @@ export default function PuntoVenta() {
   useEffect(() => {
     if (tipo === "01") setDocTipo("RUC");
   }, [tipo]);
+
+  /* Clientes guardados: primero la copia del equipo; si hay internet, se actualiza desde la nube */
+  const cargarClientes = useCallback(async () => {
+    setClientes(clientesEnEquipo());
+    if (haySinConexion()) return;
+    const { data, error: er } = await createClient()
+      .from("clientes")
+      .select("tipo_doc, numero, nombre, direccion")
+      .order("actualizado_en", { ascending: false })
+      .limit(5000);
+    if (er || !data) return;
+    const lista = data as ClienteGuardado[];
+    setClientes(lista);
+    guardarClientesEnEquipo(lista);
+  }, []);
+
+  useEffect(() => {
+    void cargarClientes();
+    const recargar = () => void cargarClientes();
+    window.addEventListener("mitayo:sincronizado", recargar);
+    return () => window.removeEventListener("mitayo:sincronizado", recargar);
+  }, [cargarClientes]);
+
+  /* Busca por palabras del nombre (en cualquier orden) o por parte del número */
+  const clientesEncontrados = useMemo(() => {
+    const texto = normalizar(buscaCliente.trim());
+    if (!texto) return [];
+    const palabras = texto.split(/\s+/);
+    return clientes
+      .filter((c) => (tipo === "01" ? c.tipo_doc === "6" : c.tipo_doc === "1" || c.tipo_doc === "6"))
+      .filter((c) => {
+        const nom = normalizar(c.nombre);
+        return palabras.every((p) => nom.includes(p)) || c.numero.includes(texto);
+      })
+      .slice(0, 8);
+  }, [buscaCliente, clientes, tipo]);
+
+  /* La lista flota sobre la pantalla (puede salir del panel hacia la izquierda) para ver el nombre completo */
+  const ubicarLista = useCallback(() => {
+    const r = cajaCliente.current?.getBoundingClientRect();
+    if (!r) return;
+    setPosLista({ top: r.bottom + 4, right: window.innerWidth - r.right, minWidth: r.width, maxWidth: Math.max(r.width, r.right - 8) });
+  }, []);
+
+  useEffect(() => {
+    if (!listaClientesAbierta) return;
+    ubicarLista();
+    window.addEventListener("resize", ubicarLista);
+    window.addEventListener("scroll", ubicarLista, true);
+    return () => {
+      window.removeEventListener("resize", ubicarLista);
+      window.removeEventListener("scroll", ubicarLista, true);
+    };
+  }, [listaClientesAbierta, ubicarLista]);
+
+  function elegirCliente(c: ClienteGuardado) {
+    setDocTipo(c.tipo_doc === "6" ? "RUC" : "DNI");
+    setNumDoc(c.numero);
+    setNombre(c.nombre);
+    setDireccion(c.direccion ?? "");
+    setAvisoDoc(null);
+    setBuscaCliente("");
+    setListaClientesAbierta(false);
+    setMarcadoCliente(0);
+  }
+
+  function teclaBuscaCliente(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setMarcadoCliente((m) => Math.min(m + 1, clientesEncontrados.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setMarcadoCliente((m) => Math.max(m - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const c = clientesEncontrados[marcadoCliente];
+      if (c) elegirCliente(c);
+    } else if (e.key === "Escape") {
+      setListaClientesAbierta(false);
+    }
+  }
 
   // El texto de búsqueda de cada producto se prepara una sola vez (más rápido en el celular)
   const indice = useMemo(() => productos.map((p) => normalizar(`${p.nombre} ${p.codigo}`)), [productos]);
@@ -408,6 +516,25 @@ export default function PuntoVenta() {
 
       // 1) Queda guardada en el celular (no se pierde aunque se vaya el internet)
       await guardarVentaLocal(venta);
+
+      // El cliente queda en la lista para buscarlo por nombre la próxima vez
+      if (conDoc) {
+        const cli: ClienteGuardado = {
+          tipo_doc: venta.cliente.tipo_doc,
+          numero: venta.cliente.numero,
+          nombre: venta.cliente.nombre,
+          direccion: venta.cliente.direccion ?? null,
+        };
+        setClientes((lista) => {
+          const anterior = lista.find((c) => c.tipo_doc === cli.tipo_doc && c.numero === cli.numero);
+          const nueva = [
+            { ...cli, direccion: cli.direccion ?? anterior?.direccion ?? null },
+            ...lista.filter((c) => c !== anterior),
+          ];
+          guardarClientesEnEquipo(nueva);
+          return nueva;
+        });
+      }
 
       // 2) El ticket sale al instante
       const ticket: DatosTicket = {
@@ -753,6 +880,51 @@ export default function PuntoVenta() {
                       {t === "03" ? "Boleta" : "Factura"}
                     </button>
                   ))}
+                </div>
+                {/* Buscar un cliente ya guardado escribiendo una palabra de su nombre */}
+                <div className="relative">
+                  <input
+                    ref={cajaCliente}
+                    aria-label="Buscar cliente guardado por nombre"
+                    value={buscaCliente}
+                    onChange={(e) => {
+                      setBuscaCliente(e.target.value);
+                      setListaClientesAbierta(true);
+                      setMarcadoCliente(0);
+                    }}
+                    onFocus={() => setListaClientesAbierta(true)}
+                    onBlur={() => setListaClientesAbierta(false)}
+                    onKeyDown={teclaBuscaCliente}
+                    placeholder="🔍 Buscar cliente por nombre…"
+                    autoComplete="off"
+                    className="h-10 w-full rounded-lg px-3"
+                  />
+                  {listaClientesAbierta && buscaCliente.trim() && posLista && (
+                    <ul
+                      style={{ top: posLista.top, right: posLista.right, minWidth: posLista.minWidth, maxWidth: posLista.maxWidth, width: "max-content" }}
+                      className="fixed z-50 max-h-72 divide-y divide-[#f6d5e1] overflow-y-auto rounded-lg border-2 border-[#b8336a] bg-white shadow-lg">
+                      {clientesEncontrados.length === 0 ? (
+                        <li className="px-3 py-2 text-xs text-gray-500">
+                          {tipo === "01" ? "No hay un cliente con RUC con ese nombre." : "No hay un cliente guardado con ese nombre."}
+                        </li>
+                      ) : (
+                        clientesEncontrados.map((c, i) => (
+                          <li key={`${c.tipo_doc}-${c.numero}`}>
+                            <button
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => elegirCliente(c)}
+                              onMouseEnter={() => setMarcadoCliente(i)}
+                              className={`flex w-full items-center gap-3 px-3 py-1.5 text-left ${i === marcadoCliente ? "bg-[#fdf1f5]" : ""}`}
+                            >
+                              <span className="min-w-0 flex-1 text-sm font-semibold text-[#5c1a37]">{c.nombre}</span>
+                              <span className="shrink-0 text-xs text-gray-500">{c.numero}</span>
+                            </button>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   {tipo === "03" && (
